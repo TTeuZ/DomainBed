@@ -69,6 +69,7 @@ class MLP(nn.Module):
         x = self.activation(x) # for URM; does not affect other algorithms
         return x
 
+
 class DinoV2(torch.nn.Module):
     """ """
     def __init__(self,input_shape, hparams):

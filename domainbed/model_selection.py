@@ -51,6 +51,7 @@ class SelectionMethod:
         else:
             return None
 
+
 class OracleSelectionMethod(SelectionMethod):
     """Like Selection method which picks argmax(test_out_acc) across all hparams
     and checkpoints, but instead of taking the argmax over all
@@ -71,6 +72,7 @@ class OracleSelectionMethod(SelectionMethod):
             'val_acc':  chosen_record[test_out_acc_key],
             'test_acc': chosen_record[test_in_acc_key]
         }
+
 
 class IIDAccuracySelectionMethod(SelectionMethod):
     """Picks argmax(mean(env_out_acc for env in train_envs))"""
@@ -98,6 +100,7 @@ class IIDAccuracySelectionMethod(SelectionMethod):
         if not len(test_records):
             return None
         return test_records.map(self._step_acc).argmax('val_acc')
+
 
 class IIDAutoLRAccuracySelectionMethod(SelectionMethod):
     """Picks argmax(mean(env_out_acc for env in train_envs))"""

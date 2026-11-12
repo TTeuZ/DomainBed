@@ -4,13 +4,9 @@ import os
 import torch
 from PIL import Image, ImageFile
 from torchvision import transforms
-import torchvision.datasets.folder
-from torch.utils.data import TensorDataset, Subset, ConcatDataset, Dataset
+from torch.utils.data import TensorDataset, ConcatDataset, Dataset
 from torchvision.datasets import MNIST, ImageFolder
 from torchvision.transforms.functional import rotate
-
-from wilds.datasets.camelyon17_dataset import Camelyon17Dataset
-from wilds.datasets.fmow_dataset import FMoWDataset
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -28,9 +24,6 @@ DATASETS = [
     "TerraIncognita",
     "DomainNet",
     "SVIRO",
-    # WILDS datasets
-    "WILDSCamelyon",
-    "WILDSFMoW",
     # Spawrious datasets
     "SpawriousO2O_easy",
     "SpawriousO2O_medium",
@@ -235,7 +228,7 @@ class PACS(MultipleEnvironmentImageFolder):
     CHECKPOINT_FREQ = 300
     ENVIRONMENTS = ["A", "C", "P", "S"]
     def __init__(self, root, test_envs, hparams):
-        self.dir = os.path.join(root, "PACS/")
+        self.dir = os.path.join(root, "pacs/pacs_data")
         super().__init__(self.dir, test_envs, hparams['data_augmentation'], hparams)
 
 class DomainNet(MultipleEnvironmentImageFolder):
@@ -267,102 +260,6 @@ class SVIRO(MultipleEnvironmentImageFolder):
         super().__init__(self.dir, test_envs, hparams['data_augmentation'], hparams)
 
 
-class WILDSEnvironment:
-    def __init__(
-            self,
-            wilds_dataset,
-            metadata_name,
-            metadata_value,
-            transform=None):
-        self.name = metadata_name + "_" + str(metadata_value)
-
-        metadata_index = wilds_dataset.metadata_fields.index(metadata_name)
-        metadata_array = wilds_dataset.metadata_array
-        subset_indices = torch.where(
-            metadata_array[:, metadata_index] == metadata_value)[0]
-
-        self.dataset = wilds_dataset
-        self.indices = subset_indices
-        self.transform = transform
-
-    def __getitem__(self, i):
-        x = self.dataset.get_input(self.indices[i])
-        if type(x).__name__ != "Image":
-            x = Image.fromarray(x)
-
-        y = self.dataset.y_array[self.indices[i]]
-        if self.transform is not None:
-            x = self.transform(x)
-        return x, y
-
-    def __len__(self):
-        return len(self.indices)
-
-
-class WILDSDataset(MultipleDomainDataset):
-    INPUT_SHAPE = (3, 224, 224)
-    def __init__(self, dataset, metadata_name, test_envs, augment, hparams):
-        super().__init__()
-
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-
-        augment_transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
-            transforms.RandomHorizontalFlip(),
-            transforms.ColorJitter(0.3, 0.3, 0.3, 0.3),
-            transforms.RandomGrayscale(),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
-
-        self.datasets = []
-
-        for i, metadata_value in enumerate(
-                self.metadata_values(dataset, metadata_name)):
-            if augment and (i not in test_envs):
-                env_transform = augment_transform
-            else:
-                env_transform = transform
-
-            env_dataset = WILDSEnvironment(
-                dataset, metadata_name, metadata_value, env_transform)
-
-            self.datasets.append(env_dataset)
-
-        self.input_shape = (3, 224, 224,)
-        self.num_classes = dataset.n_classes
-
-    def metadata_values(self, wilds_dataset, metadata_name):
-        metadata_index = wilds_dataset.metadata_fields.index(metadata_name)
-        metadata_vals = wilds_dataset.metadata_array[:, metadata_index]
-        return sorted(list(set(metadata_vals.view(-1).tolist())))
-
-
-class WILDSCamelyon(WILDSDataset):
-    ENVIRONMENTS = [ "hospital_0", "hospital_1", "hospital_2", "hospital_3",
-            "hospital_4"]
-    def __init__(self, root, test_envs, hparams):
-        dataset = Camelyon17Dataset(root_dir=root)
-        super().__init__(
-            dataset, "hospital", test_envs, hparams['data_augmentation'], hparams)
-
-
-class WILDSFMoW(WILDSDataset):
-    ENVIRONMENTS = [ "region_0", "region_1", "region_2", "region_3",
-            "region_4", "region_5"]
-    def __init__(self, root, test_envs, hparams):
-        dataset = FMoWDataset(root_dir=root)
-        super().__init__(
-            dataset, "region", test_envs, hparams['data_augmentation'], hparams)
-
-
 ## Spawrious base classes
 class CustomImageFolder(Dataset):
     """
@@ -388,6 +285,7 @@ class CustomImageFolder(Dataset):
         
         label = torch.tensor(self.class_index, dtype=torch.long)
         return img, label
+
 
 class SpawriousBenchmark(MultipleDomainDataset):
     ENVIRONMENTS = ["Test", "SC_group_1", "SC_group_2"]
@@ -508,6 +406,7 @@ class SpawriousBenchmark(MultipleDomainDataset):
         return combinations
 
 ## Spawrious classes for each Spawrious dataset 
+
 class SpawriousO2O_easy(SpawriousBenchmark):
     def __init__(self, root_dir, test_envs, hparams):
         group = ["desert","jungle","dirt","snow"]
@@ -515,6 +414,7 @@ class SpawriousO2O_easy(SpawriousBenchmark):
         filler = "beach"
         combinations = self.build_type1_combination(group,test,filler)
         super().__init__(combinations['train_combinations'], combinations['test_combinations'], root_dir, hparams['data_augmentation'], type1=True)
+
 
 class SpawriousO2O_medium(SpawriousBenchmark):
     def __init__(self, root_dir, test_envs, hparams):
@@ -524,6 +424,7 @@ class SpawriousO2O_medium(SpawriousBenchmark):
         combinations = self.build_type1_combination(group,test,filler)
         super().__init__(combinations['train_combinations'], combinations['test_combinations'], root_dir, hparams['data_augmentation'], type1=True)
 
+
 class SpawriousO2O_hard(SpawriousBenchmark):
     def __init__(self, root_dir, test_envs, hparams):
         group = ['jungle', 'mountain', 'snow', 'desert']
@@ -532,6 +433,7 @@ class SpawriousO2O_hard(SpawriousBenchmark):
         combinations = self.build_type1_combination(group,test,filler)
         super().__init__(combinations['train_combinations'], combinations['test_combinations'], root_dir, hparams['data_augmentation'], type1=True)
 
+
 class SpawriousM2M_easy(SpawriousBenchmark):
     def __init__(self, root_dir, test_envs, hparams):
         group = ['desert', 'mountain', 'dirt', 'jungle']
@@ -539,13 +441,15 @@ class SpawriousM2M_easy(SpawriousBenchmark):
         combinations = self.build_type2_combination(group,test)
         super().__init__(combinations['train_combinations'], combinations['test_combinations'], root_dir, hparams['data_augmentation']) 
 
+
 class SpawriousM2M_medium(SpawriousBenchmark):
     def __init__(self, root_dir, test_envs, hparams):
         group = ['beach', 'snow', 'mountain', 'desert']
         test = ['desert', 'mountain', 'beach', 'snow']
         combinations = self.build_type2_combination(group,test)
         super().__init__(combinations['train_combinations'], combinations['test_combinations'], root_dir, hparams['data_augmentation'])
-        
+
+   
 class SpawriousM2M_hard(SpawriousBenchmark):
     ENVIRONMENTS = ["Test","SC_group_1","SC_group_2"]
     def __init__(self, root_dir, test_envs, hparams):

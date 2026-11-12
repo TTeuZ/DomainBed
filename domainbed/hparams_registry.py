@@ -28,12 +28,12 @@ def _hparams(algorithm, dataset, random_seed):
     # Unconditional hparam definitions.
 
     _hparam('data_augmentation', True, lambda r: True)
-    _hparam('resnet18', False, lambda r: False)
-    _hparam('resnet50_augmix', True, lambda r: True)
+    _hparam('resnet18', True, lambda r: True)
+    _hparam('resnet50_augmix', False, lambda r: False)
     _hparam('dinov2', False, lambda r: False)
     _hparam('vit', False, lambda r: False)
     _hparam('vit_attn_tune', False, lambda r: False)
-    _hparam('freeze_bn', False, lambda r: False)
+    _hparam('freeze_bn', True, lambda r: True)
     _hparam('lars', False, lambda r: False)
     _hparam('linear_steps', 500, lambda r: 500)
     _hparam('resnet_dropout', 0., lambda r: r.choice([0., 0.1, 0.5]))
